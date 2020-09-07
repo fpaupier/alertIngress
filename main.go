@@ -11,31 +11,12 @@ import (
 )
 
 const (
-	bootstrapServers = "pkc-4r297.europe-west1.gcp.confluent.cloud:9092"
-	ccloudAPIKey     = ConfluentApiKey
-	ccloudAPISecret  = ConfluentSecret
+	IngressTopic       = "alert-topic"
+	AlertToNotifyTopic = "to-notify-topic"
 )
 
-var topics = []string{"alert-topic"}
-
 func main() {
-	consumer, err := kafka.NewConsumer(&kafka.ConfigMap{
-		"bootstrap.servers": bootstrapServers,
-		"sasl.mechanisms":   "PLAIN",
-		"security.protocol": "SASL_SSL",
-		"sasl.username":     ccloudAPIKey,
-		"sasl.password":     ccloudAPISecret,
-		"group.id":          "alert-consumer",
-		"auto.offset.reset": "earliest"})
-	if err != nil {
-		log.Fatalf("Failed to connect to Kafka %v", err)
-	}
-
-	// Read from Kafka
-	err = consumer.SubscribeTopics(topics, nil)
-	if err != nil {
-		log.Fatalf("failed to subscribe to topic: %v\n", err)
-	}
+	consumer := getConsumer(IngressTopic)
 	defer consumer.Close()
 
 	for {
@@ -43,16 +24,19 @@ func main() {
 		switch e := ev.(type) {
 		case *kafka.Message:
 			alert := createAlert(e.Value)
-			persistAlert(alert)
+			alertId := persistAlert(alert)
+			pingNotificationService(alertId)
 		case kafka.PartitionEOF:
 			log.Printf("%% Reached %v\n", e)
 		case kafka.Error:
 			log.Fatalf("%% Error: %v\n", e)
 		}
 	}
-	// Persist to Postgres
+}
 
-	// Publish message to Kafka (notification queue)
+// pingNotificationService publishes the id to a Kafka topic for it to be processed by a notification service.
+func pingNotificationService(id int) {
+	publish([]byte{byte(id)}, AlertToNotifyTopic)
 }
 
 // createAlert creates an alert from bytes.
@@ -64,18 +48,19 @@ func createAlert(msg []byte) *Alert {
 	return alert
 }
 
-// persistAlert saves the alert to a PostgreSQL store
-func persistAlert(alert *Alert) {
+// persistAlert saves the alert to a PostgreSQL store return the id of the alert created
+func persistAlert(alert *Alert) int {
 	dsn := fmt.Sprintf("host=%s dbname=%s user=%s password=%s sslmode=disable",
-		INSTANCE_CONNECTION_NAME,
-		DATABASE_NAME,
-		DATABASE_USER,
-		PASSWORD)
+		InstanceConnectionName,
+		DatabaseName,
+		DatabaseUser,
+		Password)
 	db, err := sql.Open("cloudsqlpostgres", dsn)
 	if err != nil {
 		log.Fatalf("failed to open DB: %v\n", err)
 	}
 	// Insert image
+	//goland:noinspection SqlResolve
 	rows, err := db.Query("INSERT INTO image (format, width, height, data) VALUES ($1, $2, $3, $4) RETURNING id;",
 		alert.Image.Format,
 		alert.Image.Size.Width,
@@ -96,6 +81,7 @@ func persistAlert(alert *Alert) {
 
 	// Insert alert record
 	receivedAt := time.Now()
+	//goland:noinspection ALL
 	query := "INSERT INTO alert (event_time, received_at, device_id, face_model_id, mask_model_id, image_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;"
 	rows, err = db.Query(query, alert.EventTime, receivedAt, alert.CreatedBy.Guid, alert.FaceDetectionModel.Guid, alert.MaskClassifierModel.Guid, imageId)
 	if err != nil {
@@ -109,4 +95,5 @@ func persistAlert(alert *Alert) {
 	}
 	_ = rows.Close()
 	log.Printf("Saved alert with id #%d\n", alertId)
+	return alertId
 }
