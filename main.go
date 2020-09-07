@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
+	"encoding/binary"
 	"fmt"
 	_ "github.com/GoogleCloudPlatform/cloudsql-proxy/proxy/dialers/postgres"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -36,7 +38,12 @@ func main() {
 
 // pingNotificationService publishes the id to a Kafka topic for it to be processed by a notification service.
 func pingNotificationService(id int) {
-	publish([]byte{byte(id)}, AlertToNotifyTopic)
+	buf := new(bytes.Buffer)
+	err := binary.Write(buf, binary.LittleEndian, uint64(id))
+	if err != nil {
+		log.Fatalf("pingNotificationService failed: %v\n", err)
+	}
+	publish(buf.Bytes(), AlertToNotifyTopic)
 }
 
 // createAlert creates an alert from bytes.
