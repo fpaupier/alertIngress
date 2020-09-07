@@ -7,6 +7,7 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/golang/protobuf/proto"
 	"log"
+	"time"
 )
 
 const (
@@ -74,18 +75,38 @@ func persistAlert(alert *Alert) {
 	if err != nil {
 		log.Fatalf("failed to open DB: %v\n", err)
 	}
-	rows, err := db.Query("SELECT id, model_name FROM face_detection_model")
+	// Insert image
+	rows, err := db.Query("INSERT INTO image (format, width, height, data) VALUES ($1, $2, $3, $4) RETURNING id;",
+		alert.Image.Format,
+		alert.Image.Size.Width,
+		alert.Image.Size.Height,
+		alert.Image.Data,
+	)
 	if err != nil {
-		log.Fatalf("failed to query DB: %v\n", err)
-
+		log.Fatalf("failed to insert image: %v\n", err)
 	}
-	var id string
-	var name string
+	var imageId int
 	for rows.Next() {
-		if err = rows.Scan(&id, &name); err != nil {
-			log.Fatalf("failed to scan row: %v\n", err)
+		if err = rows.Scan(&imageId); err != nil {
+			log.Fatalf("failed to recover last image inserted id: %v\n", err)
 		}
-		fmt.Printf("Face detection model ID# %s name: `%s`\n", id, name)
-
 	}
+	_ = rows.Close()
+	log.Printf("Saved image of type %s (%dH x %dW) with id %d\n", alert.Image.Format, alert.Image.Size.Height, alert.Image.Size.Width, imageId)
+
+	// Insert alert record
+	receivedAt := time.Now()
+	query := "INSERT INTO alert (event_time, received_at, device_id, face_model_id, mask_model_id, image_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;"
+	rows, err = db.Query(query, alert.EventTime, receivedAt, alert.CreatedBy.Guid, alert.FaceDetectionModel.Guid, alert.MaskClassifierModel.Guid, imageId)
+	if err != nil {
+		log.Fatalf("failed to execute query: %v\n", err)
+	}
+	var alertId int
+	for rows.Next() {
+		if err = rows.Scan(&alertId); err != nil {
+			log.Fatalf("failed to recover last alert inserted id: %v\n", err)
+		}
+	}
+	_ = rows.Close()
+	log.Printf("Saved alert with id #%d\n", alertId)
 }
