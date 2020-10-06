@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	IngressTopic       = "alert-topic"
-	AlertToNotifyTopic = "to-notify-topic"
+	IngressTopic       = "alert-topic"     // To consume from
+	AlertToNotifyTopic = "to-notify-topic" // To publish to
 )
 
 func main() {
