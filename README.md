@@ -8,7 +8,9 @@ Ingress alerts for the Pi Mask Detection project. Read records from a Kafka topi
 This project uses a PostgreSQL instance, hosted on GCP with their [Cloud SQL](https://cloud.google.com/sql/docs/postgres) services. The tables used to create the DB are
 defined in the `schema.sql` file.
 
-_Note_: To store image data on a PostgreSQL DB, you can use the ``bytea`` data type which allows the storage of binary strings. More info on the [PostgreSQL doc](https://www.postgresql.org/docs/9.1/datatype-binary.html).
+_Note_: 
+1) To store image data on a PostgreSQL DB, you can use the ``bytea`` data type which allows the storage of binary strings. More info on the [PostgreSQL doc](https://www.postgresql.org/docs/9.1/datatype-binary.html).
+2) For Kafka; I use a service provider to manage the cluster, Confluent. See their Go api [on GitHub](https://github.com/confluentinc/confluent-kafka-go).
 
 # Running on local 
 
