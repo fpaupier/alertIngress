@@ -50,6 +50,4 @@ The other moving parts of the projects are:
 - [alertDispatcher](https://github.com/fpaupier/alertDispatcher) is a Go module designed to run at the edge, especially a Raspberry Pi 4 B with 4Go of RAM.
 The [alertDispatcher](https://github.com/fpaupier/alertDispatcher) polls the local SQLite event store and publishes them to a Kafka topic. 
  
-- [alertIngress](https://github.com/fpaupier/alertIngress) is a Go module designed to run on a server, consuming from a Kafka topic where edge devices pushes their events. For each event consumed, the alert Ingress archives it in PostgresSQL and publishes a message to be consumed by the notification service.
-
- 
+- [notifyMask](https://github.com/fpaupier/notifyMask) is a Go module designed to run on a server, sending email notification to a system administrator when an event occurs.
