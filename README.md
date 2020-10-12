@@ -11,6 +11,7 @@ defined in the `schema.sql` file.
 _Note_: 
 1) To store image data on a PostgreSQL DB, you can use the ``bytea`` data type which allows the storage of binary strings. More info on the [PostgreSQL doc](https://www.postgresql.org/docs/9.1/datatype-binary.html).
 2) For Kafka; I use a service provider to manage the cluster, Confluent. See their Go api [on GitHub](https://github.com/confluentinc/confluent-kafka-go).
+You'll need to update the `credentials-template.go` file with your credentials and rename it into ``credentials.go`` to ensure it's not version controlled.
 
 # Running on local 
 
